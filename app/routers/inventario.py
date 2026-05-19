@@ -19,8 +19,8 @@ async def get_stock_articulo_by_bodega(
     nombre_articulo: str = Path(..., min_length=1, max_length=100),
     nombre_bodega:   str = Path(..., min_length=1, max_length=100),
 ):
-    safe_art  = _safe_path_segment(nombre_articulo)
-    safe_bod  = _safe_path_segment(nombre_bodega)
+    safe_art = _safe_path_segment(nombre_articulo)
+    safe_bod = _safe_path_segment(nombre_bodega)
     return await kame_get(f"/api/Inventario/getStockArticuloByBodega/{safe_art}/{safe_bod}")
 
 @router.post("/movimiento")
@@ -28,4 +28,13 @@ async def add_inventario(body: MovimientoInventario):
     return await kame_post("/api/Inventario/addInventario", body.model_dump(exclude_none=True))
 
 @router.post("/articulo")
-async def add_articulo(body: ArticuloC
+async def add_articulo(body: ArticuloCreate):
+    return await kame_post("/api/Maestro/addArticulo", body.model_dump(exclude_none=True))
+
+@router.put("/articulo/{sku}")
+async def update_articulo(
+    sku: str = Path(..., min_length=1, max_length=100),
+    body: ArticuloUpdate = ...,
+):
+    safe_sku = _safe_path_segment(sku)
+    return await kame_put(f"/api/Maestro/updateArticulo/{safe_sku}", body.model_dump(exclude_none=True))
