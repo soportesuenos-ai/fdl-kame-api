@@ -36,6 +36,8 @@ async def api_key_middleware(request: Request, call_next):
         return await call_next(request)
     if request.url.path in SKIP_AUTH_PATHS:
         return await call_next(request)
+    if request.method == "OPTIONS":  # dejar pasar preflight CORS
+        return await call_next(request)
     key = request.headers.get("X-API-Key") or request.query_params.get("api_key")
     if key != API_KEY:
         raise HTTPException(status_code=401, detail="API key inválida o ausente")
