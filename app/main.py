@@ -1,21 +1,18 @@
-from fastapi import FastAPI
+import os
+import logging
+from dotenv import load_dotenv
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from app.routers import inventario, maestro, cobros, pagos
 from app.services.auth import lifespan
 
+load_dotenv()
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+logger = logging.getLogger("fdl-kame-api")
+
 app = FastAPI(title="FDL KAME API", version="1.0.0", lifespan=lifespan)
 
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
-
-app.include_router(inventario.router, prefix="/inventario", tags=["Inventario"])
-app.include_router(maestro.router,    prefix="/maestro",    tags=["Maestro"])
-app.include_router(cobros.router,     prefix="/cobros",     tags=["Cobros"])
-app.include_router(pagos.router,      prefix="/pagos",      tags=["Pagos"])
-
-@app.get("/")
-def root():
-    return {"status": "ok", "service": "FDL KAME API", "version": "1.0.0"}
-
-@app.get("/health")
-def health():
-    return {"status": "healthy"}
+# ─── CORS ─────────────────────────────────────────────────────────────────────
+ALLOWED_ORIGINS = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "").split(",") if o.strip()]
+if not ALLOWED_ORIGINS:
