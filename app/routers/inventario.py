@@ -12,7 +12,7 @@ async def get_stock_articulo(nombre_articulo: str = Path(..., min_length=1, max_
 @router.get("/stock/bodega/{nombre_bodega}")
 async def get_stock_bodega(nombre_bodega: str = Path(..., min_length=1, max_length=100)):
     safe = _safe_path_segment(nombre_bodega)
-    return await kame_get(f"/api/Inventario/getStockBodega/{safe}")
+    return await kame_get(f"/api/Inventario/getStock", params={"bodega": safe})
 
 @router.get("/stock/articulo/{nombre_articulo}/bodega/{nombre_bodega}")
 async def get_stock_articulo_by_bodega(
@@ -29,7 +29,7 @@ async def add_inventario(body: MovimientoInventario):
 
 @router.post("/articulo")
 async def add_articulo(body: ArticuloCreate):
-    return await kame_post("/api/Maestro/addArticulo", body.model_dump(exclude_none=True))
+    return await kame_post("/api/Inventario/addArticulo", body.model_dump(exclude_none=True))
 
 @router.put("/articulo/{sku}")
 async def update_articulo(
