@@ -12,7 +12,7 @@ async def get_stock_articulo(nombre_articulo: str = Path(..., min_length=1, max_
 @router.get("/stock/bodega/{nombre_bodega}")
 async def get_stock_bodega(nombre_bodega: str = Path(..., min_length=1, max_length=100)):
     safe = _safe_path_segment(nombre_bodega)
-    return await kame_get(f"/api/Inventario/getStock", params={"bodega": safe})
+    return await kame_get(f"/api/Inventario/getStockBodega/{safe}")
 
 @router.get("/stock/articulo/{nombre_articulo}/bodega/{nombre_bodega}")
 async def get_stock_articulo_by_bodega(
