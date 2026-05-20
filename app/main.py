@@ -1,8 +1,9 @@
 import os
 import logging
 from dotenv import load_dotenv
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from app.routers import inventario, maestro, cobros, pagos
 from app.services.auth import lifespan
 
@@ -43,7 +44,7 @@ async def api_key_middleware(request: Request, call_next):
         return await call_next(request)
     key = request.headers.get("X-API-Key") or request.query_params.get("api_key")
     if key != API_KEY:
-        raise HTTPException(status_code=401, detail="API key inválida o ausente")
+        return JSONResponse(status_code=401, content={"detail": "API key inválida o ausente"})
     return await call_next(request)
 
 # ─── RUTAS ────────────────────────────────────────────────────────────────────
