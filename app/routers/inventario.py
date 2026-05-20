@@ -25,7 +25,18 @@ async def get_stock_articulo_by_bodega(
 
 @router.post("/movimiento")
 async def add_inventario(body: MovimientoInventario):
-    return await kame_post("/api/Inventario/addInventario", body.model_dump(exclude_none=True))
+    data = body.model_dump(exclude_none=True)
+    # Mapear "items" → "detalle" y "sku" → "articulo" según esquema KAME
+    raw_items = data.pop("items", [])
+    data["detalle"] = [
+        {
+            "articulo":     it["sku"],
+            "cantidad":     it["cantidad"],
+            **({"precioUn": it["precioUnitario"]} if "precioUnitario" in it else {}),
+        }
+        for it in raw_items
+    ]
+    return await kame_post("/api/Inventario/addInventario", data)
 
 @router.post("/articulo")
 async def add_articulo(body: ArticuloCreate):
