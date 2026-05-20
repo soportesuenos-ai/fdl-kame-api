@@ -18,10 +18,13 @@ ALLOWED_ORIGINS = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "").split(","
 if not ALLOWED_ORIGINS:
     ALLOWED_ORIGINS = ["*"]
 
+# allow_credentials=True es incompatible con allow_origins=["*"] en Starlette:
+# cuando se usan juntos no se emite ningún header CORS. Se usa credentials solo
+# con orígenes explícitos.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
-    allow_credentials=True,
+    allow_credentials=ALLOWED_ORIGINS != ["*"],
     allow_methods=["GET", "POST", "PUT"],
     allow_headers=["*"],
 )
