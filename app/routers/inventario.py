@@ -59,7 +59,7 @@ async def add_articulo(body: ArticuloCreate):
         "esArticuloProduccion":      "EsArticuloProduccion",
     }
     data = {mapping.get(k, k): v for k, v in raw.items()}
-    return await kame_post("/api/Maestro/addArticulo", data)
+    return await kame_post("/api/Inventario/addArticulo", data)
 
 @router.put("/articulo/{sku}")
 async def update_articulo(
