@@ -40,48 +40,13 @@ async def add_inventario(body: MovimientoInventario):
 
 @router.post("/articulo")
 async def add_articulo(body: ArticuloCreate):
-    raw = body.model_dump(exclude_none=True)
-    # Mapear camelCase nuestro → PascalCase que usa KAME en addArticulo
-    mapping = {
-        "descripcion":               "Descripcion",
-        "sku":                       "SKU",
-        "unidadMedida":              "UnidadMedida",
-        "precioVentaNeto":           "PrecioVentaNeto",
-        "stockMin":                  "StockMin",
-        "stockMax":                  "StockMax",
-        "familia":                   "Familia",
-        "unidadEquivalente":         "UnidadEquivalente",
-        "factorUnidadEquivalente":   "FactorUnidadEquivalente",
-        "cuentaCostoVenta":          "CuentaCostoVenta",
-        "imprimeDetallesEnVentas":       "ImprimeDetallesEnVentas",
-        "imprimeDetallesEnCotizaciones": "ImprimeDetallesEnCotizaciones",
-        "imprimeDetallesEnPedidos":      "ImprimeDetallesEnPedidos",
-        "esArticuloProduccion":      "EsArticuloProduccion",
-    }
-    data = {mapping.get(k, k): v for k, v in raw.items()}
-    return await kame_post("/api/Inventario/addArticulo", data)
+    # KAME /api/Inventario/addArticulo acepta camelCase directo (sin mapeo)
+    return await kame_post("/api/Inventario/addArticulo", body.model_dump(exclude_none=True))
 
 @router.put("/articulo/{sku}")
 async def update_articulo(
     sku: str = Path(..., min_length=1, max_length=100),
     body: ArticuloUpdate = ...,
 ):
-    raw = body.model_dump(exclude_none=True)
-    mapping = {
-        "descripcion":               "Descripcion",
-        "unidadMedida":              "UnidadMedida",
-        "precioVentaNeto":           "PrecioVentaNeto",
-        "stockMin":                  "StockMin",
-        "stockMax":                  "StockMax",
-        "familia":                   "Familia",
-        "unidadEquivalente":         "UnidadEquivalente",
-        "factorUnidadEquivalente":   "FactorUnidadEquivalente",
-        "cuentaCostoVenta":          "CuentaCostoVenta",
-        "imprimeDetallesEnVentas":       "ImprimeDetallesEnVentas",
-        "imprimeDetallesEnCotizaciones": "ImprimeDetallesEnCotizaciones",
-        "imprimeDetallesEnPedidos":      "ImprimeDetallesEnPedidos",
-        "esArticuloProduccion":      "EsArticuloProduccion",
-    }
-    data = {mapping.get(k, k): v for k, v in raw.items()}
     safe_sku = _safe_path_segment(sku)
-    return await kame_put(f"/api/Maestro/updateArticulo/{safe_sku}", data)
+    return await kame_put(f"/api/Maestro/updateArticulo/{safe_sku}", body.model_dump(exclude_none=True))

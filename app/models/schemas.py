@@ -6,22 +6,29 @@ class Atributo(BaseModel):
     value: str
 
 class ArticuloCreate(BaseModel):
-    # Campos confirmados con la respuesta real de KAME (getListArticulo)
-    usuario: str
-    descripcion: str                                     # → Descripcion
-    sku: str                                             # → SKU
-    unidadMedida: str                                    # → UnidadMedida
-    precioVentaNeto: float                               # → PrecioVentaNeto
-    stockMin: Optional[float] = 0                        # → StockMin
-    stockMax: Optional[float] = 0                        # → StockMax
-    familia: Optional[str] = None                        # → Familia
-    unidadEquivalente: Optional[str] = None              # → UnidadEquivalente (ej: "PULG")
-    factorUnidadEquivalente: Optional[float] = None      # → FactorUnidadEquivalente (pulgadas)
-    cuentaCostoVenta: Optional[str] = None               # → CuentaCostoVenta
-    imprimeDetallesEnVentas: Optional[str] = None        # → ImprimeDetallesEnVentas ("S"/"N")
-    imprimeDetallesEnCotizaciones: Optional[str] = None  # → ImprimeDetallesEnCotizaciones
-    imprimeDetallesEnPedidos: Optional[str] = None       # → ImprimeDetallesEnPedidos
-    esArticuloProduccion: Optional[str] = None           # → EsArticuloProduccion ("S"/"N")
+    # Campos confirmados con doc oficial KAME /api/Inventario/addArticulo
+    usuario: str                                                   # Obligatorio
+    descripcion: str                                               # Obligatorio
+    sku: str                                                       # Obligatorio
+    unidadMedida: str                                              # Obligatorio
+    precioVentaNeto: float                                         # Obligatorio
+    stockMin: Optional[float] = 0
+    stockMax: Optional[float] = 0
+    familia: Optional[str] = None
+    descripcionDetallada: Optional[str] = None
+    skuInterno: Optional[str] = None
+    unidadEquivalente: Optional[str] = None
+    factorUnidadEquivalente: Optional[float] = None
+    cuentaEmpresaCostosVenta: Optional[str] = None                 # ej: "4.01.02.01"
+    imprimeDetallesEnVentas: Optional[bool] = None                 # bool
+    imprimeDetallesEnCotizaciones: Optional[bool] = None           # bool
+    imprimeDetallesEnPedidos: Optional[bool] = None                # bool
+    esArticuloProduccion: Optional[bool] = None                    # bool
+    actualizaStockShopify: Optional[bool] = None
+    actualizaStockMeli: Optional[bool] = None
+    actualizaStockWoo: Optional[bool] = None
+    actualizaStockEnLinea: Optional[bool] = None
+    atributos: Optional[List[Atributo]] = None
 
 class ArticuloUpdate(BaseModel):
     usuario: str
@@ -31,13 +38,15 @@ class ArticuloUpdate(BaseModel):
     stockMin: Optional[float] = None
     stockMax: Optional[float] = None
     familia: Optional[str] = None
+    descripcionDetallada: Optional[str] = None
     unidadEquivalente: Optional[str] = None
     factorUnidadEquivalente: Optional[float] = None
-    cuentaCostoVenta: Optional[str] = None
-    imprimeDetallesEnVentas: Optional[str] = None
-    imprimeDetallesEnCotizaciones: Optional[str] = None
-    imprimeDetallesEnPedidos: Optional[str] = None
-    esArticuloProduccion: Optional[str] = None
+    cuentaEmpresaCostosVenta: Optional[str] = None
+    imprimeDetallesEnVentas: Optional[bool] = None
+    imprimeDetallesEnCotizaciones: Optional[bool] = None
+    imprimeDetallesEnPedidos: Optional[bool] = None
+    esArticuloProduccion: Optional[bool] = None
+    atributos: Optional[List[Atributo]] = None
 
 class MovimientoItem(BaseModel):
     sku: str
