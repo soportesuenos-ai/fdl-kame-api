@@ -18,10 +18,9 @@ app = FastAPI(title="FDL KAME API", version="1.0.0", lifespan=lifespan)
 ALLOWED_ORIGINS = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "").split(",") if o.strip()]
 if not ALLOWED_ORIGINS:
     ALLOWED_ORIGINS = ["*"]
+    logger.warning("ALLOWED_ORIGINS no configurado — CORS abierto a todos los origenes")
 
-# allow_credentials=True es incompatible con allow_origins=["*"] en Starlette:
-# cuando se usan juntos no se emite ningún header CORS. Se usa credentials solo
-# con orígenes explícitos.
+# allow_credentials=True es incompatible con allow_origins=["*"] en Starlette
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
@@ -34,20 +33,23 @@ app.add_middleware(
 API_KEY = os.getenv("FDL_API_KEY", "")
 SKIP_AUTH_PATHS = {"/", "/health", "/docs", "/openapi.json", "/redoc"}
 
+if not API_KEY:
+    logger.warning("FDL_API_KEY no configurada — todos los requests son aceptados")
+
 @app.middleware("http")
 async def api_key_middleware(request: Request, call_next):
     if not API_KEY:
         return await call_next(request)
     if request.url.path in SKIP_AUTH_PATHS:
         return await call_next(request)
-    if request.method == "OPTIONS":  # dejar pasar preflight CORS
+    if request.method == "OPTIONS":
         return await call_next(request)
     key = request.headers.get("X-API-Key") or request.query_params.get("api_key")
     if key != API_KEY:
-        return JSONResponse(status_code=401, content={"detail": "API key inválida o ausente"})
+        return JSONResponse(status_code=401, content={"detail": "API key invalida o ausente"})
     return await call_next(request)
 
-# ─── RUTAS ────────────────────────────────────────────────────────────────────
+# ─── ROUTERS ──────────────────────────────────────────────────────────────────
 app.include_router(inventario.router, prefix="/inventario", tags=["Inventario"])
 app.include_router(maestro.router,    prefix="/maestro",    tags=["Maestro"])
 app.include_router(cobros.router,     prefix="/cobros",     tags=["Cobros"])
