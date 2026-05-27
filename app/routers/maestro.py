@@ -14,23 +14,34 @@ CACHE_TTL = 30 * 60  # 30 minutos en segundos
 _cache_lock = asyncio.Lock()
 
 
+async def _fetch_page(page: int, per_page: int, retries: int = 3) -> list:
+    """Descarga una página con reintentos. Nunca falla silenciosamente."""
+    for attempt in range(retries):
+        try:
+            data = await kame_get("/api/Maestro/getListArticulo", {"page": page, "per_page": per_page})
+            if isinstance(data, dict):
+                return data.get("items", [])
+        except Exception:
+            if attempt < retries - 1:
+                await asyncio.sleep(1)
+    return []  # Solo si agotó reintentos
+
+
 async def _fetch_all_articulos() -> list:
-    """Descarga todas las páginas de artículos desde KAME en paralelo."""
+    """Descarga todas las páginas de artículos desde KAME en paralelo (batch=5).
+    Cada página tiene 3 reintentos para no perder artículos por timeouts."""
     first = await kame_get("/api/Maestro/getListArticulo", {"page": 1, "per_page": 100})
     total       = first.get("total", 0)
     per_page    = first.get("per_page", 100)
     total_pages = max(1, (total + per_page - 1) // per_page)
     all_items   = list(first.get("items", []))
 
-    for batch_start in range(2, total_pages + 1, 10):
-        batch = range(batch_start, min(batch_start + 10, total_pages + 1))
-        pages = await asyncio.gather(
-            *[kame_get("/api/Maestro/getListArticulo", {"page": p, "per_page": 100}) for p in batch],
-            return_exceptions=True,
-        )
-        for page_data in pages:
-            if isinstance(page_data, dict):
-                all_items.extend(page_data.get("items", []))
+    # Batch de 5 (antes 10) para no saturar rate limit de KAME (180 req/min)
+    for batch_start in range(2, total_pages + 1, 5):
+        batch = list(range(batch_start, min(batch_start + 5, total_pages + 1)))
+        results = await asyncio.gather(*[_fetch_page(p, per_page) for p in batch])
+        for page_items in results:
+            all_items.extend(page_items)
 
     return all_items
 
