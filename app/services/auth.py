@@ -88,7 +88,9 @@ async def kame_get(path: str, params: dict = None):
 async def kame_post(path: str, body: dict):
     try:
         async with httpx.AsyncClient(timeout=30) as c:
+            logger.info("KAME POST %s payload=%s", path, body)
             r = await c.post(f"{KAME_BASE_URL}{path}", headers=await _headers(), json=body)
+            logger.info("KAME POST %s → HTTP %d body=%s", path, r.status_code, r.text[:500])
             if not r.is_success:
                 _raise_kame_error(r, f"POST {path}")
             return r.json() if r.content else {}
