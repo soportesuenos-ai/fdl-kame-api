@@ -11,12 +11,9 @@ async def get_pagos(
     page:       int  = Query(1,   ge=1),
     per_page:   int  = Query(100, ge=1, le=500),
 ):
-    return await kame_get(
-        "/api/Pagos/getPagos",
-        params={
-            "fechaDesde": fechaDesde.isoformat(),
-            "fechaHasta": fechaHasta.isoformat(),
-            "page":       page,
-            "per_page":   per_page,
-        },
-    )
+    return await kame_get("/api/Pagos/getPagos", params={
+        "fechaDesde": fechaDesde.isoformat(),
+        "fechaHasta": fechaHasta.isoformat(),
+        "page":       page,
+        "per_page":   per_page,
+    })

@@ -1,6 +1,7 @@
 import asyncio
 import httpx
 import logging
+import re
 import time
 import os
 from contextlib import asynccontextmanager
@@ -14,10 +15,10 @@ AUTH0_CLIENT_SECRET = os.getenv("AUTH0_CLIENT_SECRET", "")
 AUTH0_AUDIENCE      = os.getenv("AUTH0_AUDIENCE", "")
 KAME_BASE_URL       = os.getenv("KAME_BASE_URL", "https://api.kameone.cl")
 
-_cache = {"token": None, "expires_at": 0}
+_cache      = {"token": None, "expires_at": 0}
 _token_lock = asyncio.Lock()
 
-# --- TOKEN AUTH0 --------------------------------------------------------------
+# ─── TOKEN AUTH0 ──────────────────────────────────────────────────────────────
 async def get_token() -> str:
     now = time.time()
     if _cache["token"] and now < _cache["expires_at"] - 60:
@@ -47,35 +48,31 @@ async def get_token() -> str:
         logger.info("Token renovado, expira en %ds", d.get("expires_in", 3600))
         return _cache["token"]
 
-
 async def _headers() -> dict:
     return {
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {await get_token()}"
+        "Authorization": f"Bearer {await get_token()}",
     }
 
+# ─── PATH SAFETY ──────────────────────────────────────────────────────────────
+_SAFE_SEG = re.compile(r'^[\w\s\-\.]+$')
 
-# --- HELPERS KAME -------------------------------------------------------------
 def _safe_path_segment(value: str) -> str:
-    return value.replace("/", "").replace("\\", "").replace("..", "").strip()
+    """Rechaza valores con caracteres que permiten path traversal."""
+    if not _SAFE_SEG.match(value):
+        raise HTTPException(status_code=400, detail="Parametro de ruta invalido")
+    return value
 
-
+# ─── HELPERS KAME ─────────────────────────────────────────────────────────────
 def _raise_kame_error(r: httpx.Response, context: str) -> None:
     logger.error("KAME %s -> HTTP %d: %s", context, r.status_code, r.text[:200])
-    raise HTTPException(
-        status_code=r.status_code,
-        detail=f"Error KAME ({context}): {r.text[:200]}"
-    )
-
+    raise HTTPException(status_code=r.status_code,
+                        detail=f"Error KAME ({context}): {r.text[:200]}")
 
 async def kame_get(path: str, params: dict = None):
     try:
         async with httpx.AsyncClient(timeout=30) as c:
-            r = await c.get(
-                f"{KAME_BASE_URL}{path}",
-                headers=await _headers(),
-                params=params,
-            )
+            r = await c.get(f"{KAME_BASE_URL}{path}", headers=await _headers(), params=params)
             if not r.is_success:
                 _raise_kame_error(r, f"GET {path}")
             return r.json() if r.content else {}
@@ -86,17 +83,12 @@ async def kame_get(path: str, params: dict = None):
         raise HTTPException(status_code=504, detail=f"Timeout KAME: GET {path}")
     except Exception as e:
         logger.exception("Error KAME GET %s", path)
-        raise HTTPException(status_code=502, detail=f"Error KAME: {str(e)}")
-
+        raise HTTPException(status_code=502, detail=f"Error KAME: {e}")
 
 async def kame_post(path: str, body: dict):
     try:
         async with httpx.AsyncClient(timeout=30) as c:
-            r = await c.post(
-                f"{KAME_BASE_URL}{path}",
-                headers=await _headers(),
-                json=body,
-            )
+            r = await c.post(f"{KAME_BASE_URL}{path}", headers=await _headers(), json=body)
             if not r.is_success:
                 _raise_kame_error(r, f"POST {path}")
             return r.json() if r.content else {}
@@ -107,17 +99,12 @@ async def kame_post(path: str, body: dict):
         raise HTTPException(status_code=504, detail=f"Timeout KAME: POST {path}")
     except Exception as e:
         logger.exception("Error KAME POST %s", path)
-        raise HTTPException(status_code=502, detail=f"Error KAME: {str(e)}")
-
+        raise HTTPException(status_code=502, detail=f"Error KAME: {e}")
 
 async def kame_put(path: str, body: dict):
     try:
         async with httpx.AsyncClient(timeout=30) as c:
-            r = await c.put(
-                f"{KAME_BASE_URL}{path}",
-                headers=await _headers(),
-                json=body,
-            )
+            r = await c.put(f"{KAME_BASE_URL}{path}", headers=await _headers(), json=body)
             if not r.is_success:
                 _raise_kame_error(r, f"PUT {path}")
             return r.json() if r.content else {}
@@ -128,10 +115,9 @@ async def kame_put(path: str, body: dict):
         raise HTTPException(status_code=504, detail=f"Timeout KAME: PUT {path}")
     except Exception as e:
         logger.exception("Error KAME PUT %s", path)
-        raise HTTPException(status_code=502, detail=f"Error KAME: {str(e)}")
+        raise HTTPException(status_code=502, detail=f"Error KAME: {e}")
 
-
-# --- LIFESPAN -----------------------------------------------------------------
+# ─── LIFESPAN ─────────────────────────────────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Iniciando FDL KAME API...")

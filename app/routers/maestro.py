@@ -10,24 +10,22 @@ async def get_list_articulo(page: int = 1, per_page: int = 100):
 
 @router.get("/articulos/todos")
 async def get_all_articulos():
-    """Devuelve todos los artículos paginando la API de KAME en paralelo."""
+    """Todos los artículos paginando KAME en paralelo. Usado por fdl-kame-bot para calcular SKU."""
     first = await kame_get("/api/Maestro/getListArticulo", {"page": 1, "per_page": 100})
-    total    = first.get("total", 0)
-    per_page = first.get("per_page", 100)
+    total       = first.get("total", 0)
+    per_page    = first.get("per_page", 100)
     total_pages = max(1, (total + per_page - 1) // per_page)
+    all_items   = list(first.get("items", []))
 
-    all_items = list(first.get("items", []))
-
-    # Fetch remaining pages en lotes de 10 para no saturar KAME
     for batch_start in range(2, total_pages + 1, 10):
         batch = range(batch_start, min(batch_start + 10, total_pages + 1))
         pages = await asyncio.gather(
             *[kame_get("/api/Maestro/getListArticulo", {"page": p, "per_page": 100}) for p in batch],
             return_exceptions=True,
         )
-        for page in pages:
-            if isinstance(page, dict):
-                all_items.extend(page.get("items", []))
+        for page_data in pages:
+            if isinstance(page_data, dict):
+                all_items.extend(page_data.get("items", []))
 
     return {"items": all_items, "total": len(all_items)}
 
