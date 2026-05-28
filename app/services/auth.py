@@ -135,13 +135,26 @@ async def kame_put(path: str, body: dict):
         raise HTTPException(status_code=502, detail=f"Error KAME: {e}")
 
 # ─── LIFESPAN ─────────────────────────────────────────────────────────────────
+async def _warmup_maestro():
+    """Pre-calienta el caché del maestro en background tras el arranque."""
+    await asyncio.sleep(3)   # espera breve para que KAME no colisione con get_token
+    try:
+        from app.routers.maestro import _get_cached_articulos   # import tardío → sin circular
+        items = await _get_cached_articulos()
+        logger.info("Cache maestro pre-calentado: %d artículos", len(items))
+    except Exception as exc:
+        logger.warning("No se pudo pre-calentar cache maestro: %s", exc)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Iniciando FDL KAME API...")
     try:
         await get_token()
         logger.info("Token inicial OK")
-    except Exception as e:
-        logger.warning("No se pudo obtener token inicial: %s", e)
+    except Exception as exc:
+        logger.warning("No se pudo obtener token inicial: %s", exc)
+
+    asyncio.create_task(_warmup_maestro())   # no bloquea el arranque
     yield
     logger.info("Cerrando FDL KAME API")
