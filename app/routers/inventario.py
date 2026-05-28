@@ -3,6 +3,7 @@ from fastapi import APIRouter, Path
 from pydantic import BaseModel
 from typing import List, Optional
 from app.services.auth import kame_get, kame_post, kame_put, _safe_path_segment
+from app.models.schemas import ArticuloUpdateFull
 from app.models.schemas import ArticuloCreate, ArticuloUpdate, MovimientoInventario
 
 router = APIRouter()
@@ -49,17 +50,16 @@ async def add_articulo(body: ArticuloCreate):
 @router.put("/articulo/{sku}")
 async def update_articulo(
     sku: str = Path(..., min_length=1, max_length=100),
-    body: ArticuloUpdate = ...,
+    body: ArticuloUpdateFull = ...,
 ):
     """
-    Actualiza un artículo existente en KAME.
-    KAME usa el mismo endpoint addArticulo para crear y actualizar (upsert por SKU).
-    El campo descripcion es obligatorio para KAME aunque sea opcional en este schema.
+    Actualiza un artículo existente en KAME via PUT /api/Inventario/updArticulo/{sku}.
+    Endpoint correcto confirmado por KAME soporte (updArticulo, no updateArticulo).
     """
-    _safe_path_segment(sku)  # validar SKU
+    safe = _safe_path_segment(sku)
     data = body.model_dump(exclude_none=True)
-    data["sku"] = sku  # SKU en body, no en path (KAME lo requiere en el body)
-    return await kame_post("/api/Inventario/addArticulo", data)
+    data["sku"] = sku
+    return await kame_put(f"/api/Inventario/updArticulo/{safe}", data)
 
 
 # ─── BULK UPDATE ─────────────────────────────────────────────────────────────
