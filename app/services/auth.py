@@ -93,7 +93,14 @@ async def kame_post(path: str, body: dict):
             logger.info("KAME POST %s → HTTP %d body=%s", path, r.status_code, r.text[:500])
             if not r.is_success:
                 _raise_kame_error(r, f"POST {path}")
-            return r.json() if r.content else {}
+            data = r.json() if r.content else {}
+            # KAME devuelve HTTP 200 con {"Estado":"Error"} para errores de negocio
+            if isinstance(data, dict) and data.get("Estado") == "Error":
+                errores = data.get("Error", [])
+                msg = "; ".join(e.get("ErrorMessage", "") for e in errores) if errores else str(data)
+                logger.error("KAME negocio error POST %s: %s", path, msg)
+                raise HTTPException(status_code=422, detail=f"Error KAME: {msg}")
+            return data
     except HTTPException:
         raise
     except httpx.TimeoutException:
@@ -111,7 +118,13 @@ async def kame_put(path: str, body: dict):
             logger.info("KAME PUT %s → HTTP %d body=%s", path, r.status_code, r.text[:500])
             if not r.is_success:
                 _raise_kame_error(r, f"PUT {path}")
-            return r.json() if r.content else {}
+            data = r.json() if r.content else {}
+            if isinstance(data, dict) and data.get("Estado") == "Error":
+                errores = data.get("Error", [])
+                msg = "; ".join(e.get("ErrorMessage", "") for e in errores) if errores else str(data)
+                logger.error("KAME negocio error PUT %s: %s", path, msg)
+                raise HTTPException(status_code=422, detail=f"Error KAME: {msg}")
+            return data
     except HTTPException:
         raise
     except httpx.TimeoutException:

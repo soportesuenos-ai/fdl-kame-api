@@ -49,8 +49,15 @@ async def update_articulo(
     sku: str = Path(..., min_length=1, max_length=100),
     body: ArticuloUpdate = ...,
 ):
-    safe_sku = _safe_path_segment(sku)
-    return await kame_put(f"/api/Maestro/updateArticulo/{safe_sku}", body.model_dump(exclude_none=True))
+    """
+    Actualiza un artículo existente en KAME.
+    KAME usa el mismo endpoint addArticulo para crear y actualizar (upsert por SKU).
+    El campo descripcion es obligatorio para KAME aunque sea opcional en este schema.
+    """
+    _safe_path_segment(sku)  # validar SKU
+    data = body.model_dump(exclude_none=True)
+    data["sku"] = sku  # SKU en body, no en path (KAME lo requiere en el body)
+    return await kame_post("/api/Inventario/addArticulo", data)
 
 
 # ─── BULK UPDATE ─────────────────────────────────────────────────────────────
