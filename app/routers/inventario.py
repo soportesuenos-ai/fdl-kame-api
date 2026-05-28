@@ -58,7 +58,9 @@ async def update_articulo(
     """
     safe = _safe_path_segment(sku)
     data = body.model_dump(exclude_none=True)
-    data["sku"] = sku
+    # No incluir sku en el body — KAME lo toma del path; si viene en body
+    # lo interpreta como intento de crear y devuelve "ya se encuentra registrado"
+    data.pop("sku", None)
     return await kame_put(f"/api/Inventario/updArticulo/{safe}", data)
 
 
