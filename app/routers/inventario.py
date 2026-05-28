@@ -34,7 +34,9 @@ async def add_inventario(body: MovimientoInventario):
         {
             "articulo": it["sku"],
             "cantidad": it["cantidad"],
-            **({"precioUn": it["precioUnitario"]} if "precioUnitario" in it else {}),
+            **({"precioUn":      it["precioUnitario"]} if "precioUnitario" in it else {}),
+            **({"unidadNegocio": it["unidadNegocio"]} if "unidadNegocio"  in it else {}),
+            **({"totalLinea":    it["totalLinea"]}    if "totalLinea"     in it else {}),
         }
         for it in raw_items
     ]

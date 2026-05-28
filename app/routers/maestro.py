@@ -103,9 +103,10 @@ async def get_articulos_slim():
     items = await _get_cached_articulos()
     slim = [
         {
-            "SKU":        a.get("SKU") or a.get("sku") or "",
-            "Descripcion": a.get("Descripcion") or a.get("descripcion") or "",
-            "Familia":    a.get("Familia") or a.get("familia") or "",
+            "SKU":                    a.get("SKU") or a.get("sku") or "",
+            "Descripcion":            a.get("Descripcion") or a.get("descripcion") or "",
+            "Familia":                a.get("Familia") or a.get("familia") or "",
+            "FactorUnidadEquivalente": float(a.get("FactorUnidadEquivalente") or a.get("factorUnidadEquivalente") or 0),
         }
         for a in items
     ]

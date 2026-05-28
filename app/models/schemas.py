@@ -52,6 +52,8 @@ class MovimientoItem(BaseModel):
     sku: str
     cantidad: float
     precioUnitario: Optional[float] = None
+    unidadNegocio: Optional[str] = None
+    totalLinea: Optional[float] = None
 
 class MovimientoInventario(BaseModel):
     usuario: str
