@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from app.routers import inventario, maestro, cobros, pagos, sesiones
+from app.routers import inventario, maestro, cobros, pagos, sesiones, usuarios
 from app.services.auth import lifespan
 
 load_dotenv()
@@ -61,6 +61,7 @@ app.include_router(maestro.router,    prefix="/maestro",    tags=["Maestro"])
 app.include_router(cobros.router,     prefix="/cobros",     tags=["Cobros"])
 app.include_router(pagos.router,      prefix="/pagos",      tags=["Pagos"])
 app.include_router(sesiones.router,   prefix="/inventario", tags=["Sesiones"])
+app.include_router(usuarios.router,   prefix="",            tags=["Usuarios"])
 
 @app.get("/")
 async def root():
