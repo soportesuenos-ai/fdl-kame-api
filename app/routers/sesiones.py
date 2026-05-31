@@ -1,52 +1,83 @@
-"""
-Router de sesiones de inventario físico.
-
-Almacena sesiones de conteo en memoria del servidor (suficiente para una
-jornada de toma de inventario). Las sesiones se consolidan por bodega:
-- Mismo SKU en distintas calles → se SUMAN (stock distribuido en la bodega)
-- El admin revisa diferencias vs. stock KAME antes de generar movimientos
-"""
+import json
+import sqlite3
 import time
+import os
+import asyncio
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Dict, Optional
 
 router = APIRouter()
 
-# ─── STORAGE EN MEMORIA ───────────────────────────────────────────────────────
-# Estructura: { bodega: { session_id: SesionData } }
-_sesiones: Dict[str, Dict[str, dict]] = {}
+DB_PATH = os.getenv("SESIONES_DB_PATH", "/tmp/fdl_sesiones.db")
+_db_lock = asyncio.Lock()
 
 
-# ─── SCHEMAS ──────────────────────────────────────────────────────────────────
+def _init_db():
+    con = sqlite3.connect(DB_PATH)
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS sesiones (
+            sesion_id TEXT NOT NULL,
+            bodega    TEXT NOT NULL,
+            data      TEXT NOT NULL,
+            ts        REAL NOT NULL,
+            PRIMARY KEY (bodega, sesion_id)
+        )
+    """)
+    con.commit()
+    con.close()
+
+_init_db()
+
+
+def _db_upsert(bodega, sesion_id, data):
+    con = sqlite3.connect(DB_PATH)
+    con.execute(
+        "INSERT OR REPLACE INTO sesiones (sesion_id, bodega, data, ts) VALUES (?,?,?,?)",
+        (sesion_id, bodega, json.dumps(data), time.time())
+    )
+    con.commit()
+    con.close()
+
+
+def _db_list(bodega):
+    con = sqlite3.connect(DB_PATH)
+    rows = con.execute(
+        "SELECT data FROM sesiones WHERE bodega=? ORDER BY ts",
+        (bodega,)
+    ).fetchall()
+    con.close()
+    return [json.loads(r[0]) for r in rows]
+
+
+def _db_delete(bodega):
+    con = sqlite3.connect(DB_PATH)
+    con.execute("DELETE FROM sesiones WHERE bodega=?", (bodega,))
+    con.commit()
+    con.close()
+
+
 class ItemConteo(BaseModel):
     qty: float
     obs: Optional[str] = None
 
 class SesionSubmit(BaseModel):
-    sesion_id: str          # ej: "usr_bodega1_2026-05-27"
+    sesion_id: str
     usuario:   str
     bodega:    str
-    calle:     Optional[str] = None   # sección asignada al usuario
+    calle:     Optional[str] = None
     fecha:     str
-    items:     Dict[str, ItemConteo]  # { sku: { qty, obs } }
+    items:     Dict[str, ItemConteo]
 
-
-# ─── ENDPOINTS ────────────────────────────────────────────────────────────────
 
 @router.post("/sesiones")
 async def submit_sesion(body: SesionSubmit):
-    """Recibe la sesión de conteo de un usuario y la almacena en servidor."""
-    bodega = body.bodega
-    if bodega not in _sesiones:
-        _sesiones[bodega] = {}
-    _sesiones[bodega][body.sesion_id] = {
-        **body.model_dump(),
-        "ts_recibida": time.time(),
-    }
+    async with _db_lock:
+        data = {**body.model_dump(), "ts_recibida": time.time()}
+        _db_upsert(body.bodega, body.sesion_id, data)
     return {
         "ok": True,
-        "bodega": bodega,
+        "bodega": body.bodega,
         "sesion_id": body.sesion_id,
         "items_recibidos": len(body.items),
     }
@@ -54,23 +85,17 @@ async def submit_sesion(body: SesionSubmit):
 
 @router.get("/sesiones")
 async def list_sesiones(bodega: str):
-    """Lista todas las sesiones enviadas para una bodega."""
-    sesiones = list((_sesiones.get(bodega) or {}).values())
+    sesiones = _db_list(bodega)
     return {"bodega": bodega, "sesiones": sesiones, "total": len(sesiones)}
 
 
 @router.get("/sesiones/consolidado")
 async def consolidar(bodega: str):
-    """Consolida todas las sesiones de una bodega:
-    - Suma cantidades del mismo SKU en distintas calles
-    - Devuelve tabla lista para comparar con stock KAME
-    """
-    sesiones = (_sesiones.get(bodega) or {}).values()
+    sesiones = _db_list(bodega)
     if not sesiones:
         raise HTTPException(status_code=404, detail=f"No hay sesiones para bodega '{bodega}'")
 
-    # Sumar qty por SKU a través de todas las calles/usuarios
-    consolidado: Dict[str, dict] = {}
+    consolidado = {}
     for ses in sesiones:
         for sku, item in (ses.get("items") or {}).items():
             qty = item.get("qty", 0) if isinstance(item, dict) else 0
@@ -95,16 +120,15 @@ async def consolidar(bodega: str):
     ]
 
     return {
-        "bodega":          bodega,
-        "sesiones_base":   len(list(sesiones)),
-        "skus_contados":   len(items_out),
-        "items":           items_out,
+        "bodega":        bodega,
+        "sesiones_base": len(sesiones),
+        "skus_contados": len(items_out),
+        "items":         items_out,
     }
 
 
 @router.delete("/sesiones")
 async def clear_sesiones(bodega: str):
-    """Limpia las sesiones de una bodega (después de procesar en KAME)."""
-    if bodega in _sesiones:
-        del _sesiones[bodega]
+    async with _db_lock:
+        _db_delete(bodega)
     return {"ok": True, "bodega": bodega}

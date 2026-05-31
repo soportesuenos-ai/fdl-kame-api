@@ -1,4 +1,5 @@
 import asyncio
+import time
 from fastapi import APIRouter, Path
 from pydantic import BaseModel
 from typing import List, Optional
@@ -8,6 +9,17 @@ from app.models.schemas import ArticuloCreate, ArticuloUpdate, MovimientoInventa
 
 router = APIRouter()
 
+# ─── CACHE STOCK BODEGA (5 min TTL) ──────────────────────────────────────────
+# Evita que 15 usuarios simultáneos generen 15 requests a KAME para la misma bodega.
+_stock_bodega_cache: dict = {}   # { bodega: {"items": [...], "ts": float} }
+_stock_bodega_locks: dict = {}   # { bodega: asyncio.Lock() }
+STOCK_BODEGA_TTL = 5 * 60        # 5 minutos
+
+def _get_bodega_lock(bodega: str) -> asyncio.Lock:
+    if bodega not in _stock_bodega_locks:
+        _stock_bodega_locks[bodega] = asyncio.Lock()
+    return _stock_bodega_locks[bodega]
+
 @router.get("/stock/articulo/{nombre_articulo}")
 async def get_stock_articulo(nombre_articulo: str = Path(..., min_length=1, max_length=100)):
     safe = _safe_path_segment(nombre_articulo)
@@ -16,7 +28,23 @@ async def get_stock_articulo(nombre_articulo: str = Path(..., min_length=1, max_
 @router.get("/stock/bodega/{nombre_bodega}")
 async def get_stock_bodega(nombre_bodega: str = Path(..., min_length=1, max_length=100)):
     safe = _safe_path_segment(nombre_bodega)
-    return await kame_get(f"/api/Inventario/getStockBodega/{safe}")
+    lock = _get_bodega_lock(safe)
+
+    async with lock:
+        cached = _stock_bodega_cache.get(safe)
+        if cached and (time.time() - cached["ts"]) < STOCK_BODEGA_TTL:
+            return cached["data"]
+
+        data = await kame_get(f"/api/Inventario/getStockBodega/{safe}")
+        _stock_bodega_cache[safe] = {"data": data, "ts": time.time()}
+        return data
+
+@router.delete("/stock/bodega/{nombre_bodega}/cache")
+async def invalidar_cache_bodega(nombre_bodega: str = Path(..., min_length=1, max_length=100)):
+    """Fuerza recarga del stock de bodega en el próximo request."""
+    safe = _safe_path_segment(nombre_bodega)
+    _stock_bodega_cache.pop(safe, None)
+    return {"ok": True, "bodega": safe}
 
 @router.get("/stock/articulo/{nombre_articulo}/bodega/{nombre_bodega}")
 async def get_stock_articulo_by_bodega(
